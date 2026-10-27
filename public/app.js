@@ -13,3 +13,33 @@ document.querySelectorAll('.filter').forEach(b=>b.addEventListener('click',()=>{
  grid.querySelectorAll('.video-card').forEach(c=>{c.hidden=b.dataset.filter!=='all'&&c.dataset.kind!==b.dataset.filter;if(!c.hidden)count++;else if(c.querySelector('iframe')){const f=films.find(v=>v.id===c.dataset.id);const fresh=card(f,films.indexOf(f)+1);fresh.hidden=true;c.replaceWith(fresh)}});
  document.getElementById('count').textContent=count+' FILMS';
 }));
+
+// LOOP THEATER: play all films in order and loop back to the first.
+const theaterList=films.filter(f=>f.embedAvailable);
+let tPlayer=null,tIndex=0,tErrors=0,tStarted=false;
+const tStage=document.getElementById('theater-stage'),tNow=document.getElementById('theater-now'),tStart=document.getElementById('theater-start');
+function tLabel(){const f=theaterList[tIndex];tNow.textContent=String(tIndex+1).padStart(2,'0')+' / '+theaterList.length+' — '+f.title+'（'+f.author+'）';}
+function tLoad(i){tIndex=(i+theaterList.length)%theaterList.length;tLabel();if(tPlayer)tPlayer.loadVideoById(theaterList[tIndex].id);}
+function tCreate(){
+ tPlayer=new YT.Player('theater-frame',{videoId:theaterList[tIndex].id,playerVars:{playsinline:1,rel:0},events:{
+  onReady(e){tLabel();e.target.playVideo();},
+  onStateChange(e){if(e.data===YT.PlayerState.ENDED){tErrors=0;tLoad(tIndex+1);}},
+  onError(){tErrors++;if(tErrors>=theaterList.length){tNow.textContent='再生できる動画がありませんでした。';return;}tLoad(tIndex+1);}
+ }});
+}
+tStart.addEventListener('click',()=>{
+ if(tStarted){tStage.scrollIntoView({behavior:'smooth'});return;}
+ tStarted=true;tStage.hidden=false;tStart.innerHTML='シアターで再生中 <span>↓</span>';
+ if(window.YT&&YT.Player){tCreate();}
+ else{const tag=document.createElement('script');tag.src='https://www.youtube.com/iframe_api';document.head.appendChild(tag);window.onYouTubeIframeAPIReady=tCreate;}
+ tStage.scrollIntoView({behavior:'smooth'});
+});
+document.getElementById('theater-next').addEventListener('click',()=>tLoad(tIndex+1));
+document.getElementById('theater-prev').addEventListener('click',()=>tLoad(tIndex-1));
+document.getElementById('theater-stop').addEventListener('click',()=>{
+ if(tPlayer){tPlayer.destroy();tPlayer=null;}
+ const holder=document.createElement('div');holder.id='theater-frame';
+ document.querySelector('.theater-player').replaceChildren(holder);
+ tStage.hidden=true;tStarted=false;tErrors=0;tIndex=0;
+ tStart.innerHTML='連続リピート再生をはじめる <span>▶</span>';
+});
